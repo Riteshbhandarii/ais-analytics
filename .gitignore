@@ -1,15 +1,1 @@
 .env
-.env.*
-!.env.example
-.envrc
-.secrets
-*.credentials
-*.pem
-*.key
-*.p12
-*.pfx
-*.crt
-*.cer
-id_rsa
-id_rsa.pub
-*.log

@@ -7,6 +7,8 @@ from paho.mqtt.client import Client, MQTTMessage
 from datetime import datetime, timezone
 from typing import Any, Optional
 
+from config import DB_CONFIG
+
 conn = psycopg2.connect(**DB_CONFIG)
 cur = conn.cursor()
 

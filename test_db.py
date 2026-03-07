@@ -168,5 +168,3 @@ async def main() -> None:
 
 if __name__ == "__main__":
     asyncio.run(main())
-client.connect("meri.digitraffic.fi", 443)
-client.loop_forever()

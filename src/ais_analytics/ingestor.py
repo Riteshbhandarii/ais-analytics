@@ -9,7 +9,7 @@ from paho.mqtt.client import Client, MQTTMessage
 from datetime import datetime, timezone
 from typing import Any, Optional
 
-from config import DB_CONFIG
+from .config import DB_CONFIG
 
 conn: Optional[PGConnection] = None
 cur: Optional[PGCursor] = None
@@ -187,7 +187,3 @@ async def main() -> None:
     finally:
         if conn is not None:
             conn.close()
-
-
-if __name__ == "__main__":
-    asyncio.run(main())

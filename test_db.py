@@ -3,21 +3,35 @@ import uuid
 import asyncio
 import psycopg2
 import paho.mqtt.client as mqtt
+from psycopg2.extensions import connection as PGConnection, cursor as PGCursor
 from paho.mqtt.client import Client, MQTTMessage
 from datetime import datetime, timezone
 from typing import Any, Optional
 
 from config import DB_CONFIG
 
-conn = psycopg2.connect(**DB_CONFIG)
-cur = conn.cursor()
+conn: Optional[PGConnection] = None
+cur: Optional[PGCursor] = None
 
 event_loop: Optional[asyncio.AbstractEventLoop] = None
 
 
+def require_db() -> tuple[PGConnection, PGCursor]:
+    if conn is None or cur is None:
+        raise RuntimeError("Database connection is not initialized.")
+    return conn, cur
+
+
+def init_db() -> None:
+    global conn, cur
+    conn = psycopg2.connect(**DB_CONFIG)
+    cur = conn.cursor()
+
+
 async def save_vessel(mmsi: int, data: dict) -> None:
+    db_conn, db_cur = require_db()
     await asyncio.to_thread(
-        cur.execute,
+        db_cur.execute,
         """
         INSERT INTO vessels (mmsi, name, imo, callsign, vessel_type)
         VALUES (%s, %s, %s, %s, %s)
@@ -36,13 +50,14 @@ async def save_vessel(mmsi: int, data: dict) -> None:
             data.get("type")
         )
     )
-    await asyncio.to_thread(conn.commit)
+    await asyncio.to_thread(db_conn.commit)
 
 
 async def save_ais_message(mmsi: int, data: dict) -> None:
+    db_conn, db_cur = require_db()
     ais_time = datetime.fromtimestamp(data["time"], tz=timezone.utc)
     await asyncio.to_thread(
-        cur.execute,
+        db_cur.execute,
         """
         INSERT INTO ais_messages
         (ais_time, mmsi, latitude, longitude, sog, cog, heading, nav_status)
@@ -59,7 +74,7 @@ async def save_ais_message(mmsi: int, data: dict) -> None:
             data.get("navStat")
         )
     )
-    await asyncio.to_thread(conn.commit)
+    await asyncio.to_thread(db_conn.commit)
 
 
 async def process_location(topic: str, data: dict) -> None:
@@ -90,8 +105,9 @@ async def process_metadata(topic: str, data: dict) -> None:
 
 
 async def ensure_vessel_exists(mmsi: int) -> None:
+    db_conn, db_cur = require_db()
     await asyncio.to_thread(
-        cur.execute,
+        db_cur.execute,
         """
         INSERT INTO vessels (mmsi)
         VALUES (%s)
@@ -99,7 +115,7 @@ async def ensure_vessel_exists(mmsi: int) -> None:
         """,
         (mmsi,)
     )
-    await asyncio.to_thread(conn.commit)
+    await asyncio.to_thread(db_conn.commit)
 
 
 def on_connect(client: Any, userdata: Any, flags: Any, reasonCode: Any, properties: Any) -> None:
@@ -142,6 +158,12 @@ async def mqtt_loop(client: Client) -> None:
 async def main() -> None:
     global event_loop
     event_loop = asyncio.get_running_loop()
+
+    try:
+        init_db()
+    except psycopg2.OperationalError as exc:
+        print(f"Database connection failed: {exc}")
+        return
     
     client = mqtt.Client(  # type: ignore[call-arg]
         client_id=f"ais-{uuid.uuid4()}",
@@ -163,7 +185,8 @@ async def main() -> None:
         print("\nShutting down...")
         client.disconnect()
     finally:
-        conn.close()
+        if conn is not None:
+            conn.close()
 
 
 if __name__ == "__main__":

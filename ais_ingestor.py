@@ -126,11 +126,10 @@ def on_connect(client: Any, userdata: Any, flags: Any, reasonCode: Any, properti
 
 
 def on_message(client: Client, userdata: Any, msg: MQTTMessage) -> None:
-    """Синхронный callback - запускаем async задачу через event loop"""
+    """Bridge the sync MQTT callback into the asyncio event loop."""
     try:
         data = json.loads(msg.payload.decode("utf-8"))
-        
-        # Создаём задачу в event loop
+
         if msg.topic.endswith("/location"):
             asyncio.run_coroutine_threadsafe(
                 process_location(msg.topic, data), 
@@ -146,7 +145,7 @@ def on_message(client: Client, userdata: Any, msg: MQTTMessage) -> None:
 
 
 async def mqtt_loop(client: Client) -> None:
-    """Запуск MQTT loop в отдельном потоке"""
+    """Run the MQTT client loop in a worker thread."""
     loop = asyncio.get_event_loop()
     
     def mqtt_work():

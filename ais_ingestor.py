@@ -1,6 +1,7 @@
 import json
 import uuid
 import asyncio
+import certifi
 import psycopg2
 import paho.mqtt.client as mqtt
 from psycopg2.extensions import connection as PGConnection, cursor as PGCursor
@@ -171,7 +172,7 @@ async def main() -> None:
         callback_api_version=mqtt.CallbackAPIVersion.VERSION2  # type: ignore[attr-defined]
     )
     
-    client.tls_set()
+    client.tls_set(ca_certs=certifi.where())
     client.on_connect = on_connect
     client.on_message = on_message
     
